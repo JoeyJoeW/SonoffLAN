@@ -17,7 +17,7 @@ async def async_setup_platform(hass, config, add_entities,
 
     deviceid = discovery_info['deviceid']
     registry = hass.data[DOMAIN]
-    uiid = registry.devices[deviceid].get('uiid')
+    uiid = registry.devices[deviceid]['itemData'].get('uiid')
     if uiid == 126:
         add_entities([DualR3Cover(registry, deviceid)])
     else:

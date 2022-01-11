@@ -28,8 +28,8 @@ async def async_setup_platform(hass, config, add_entities,
     channels = discovery_info['channels']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid].get('uiid')
-    model = registry.devices[deviceid].get('productModel')
+    uiid = registry.devices[deviceid]['itemData'].get('uiid')
+    model = registry.devices[deviceid]['itemData'].get('productModel')
 
     if uiid == 44 or uiid == 'light':
         add_entities([SonoffD1(registry, deviceid)])
@@ -501,7 +501,7 @@ class Sonoff103(EWeLinkLight):
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
 
-        device: dict = self.registry.devices[self.deviceid]
+        device: dict = self.registry.devices[self.deviceid]['itemData']
         model = device.get('productModel')
         if model == 'B02-F-ST64':
             self._min_mireds = int(1000000 / 5000)

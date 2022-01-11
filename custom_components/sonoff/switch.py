@@ -28,7 +28,7 @@ async def async_setup_platform(hass, config, add_entities,
     channels = discovery_info['channels']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid].get('uiid')
+    uiid = registry.devices[deviceid]['itemData'].get('extra', {}).get('uiid')
     if uiid == 66:
         add_entities([ZigBeeBridge(registry, deviceid)])
     else:

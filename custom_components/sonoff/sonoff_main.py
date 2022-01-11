@@ -5,7 +5,7 @@ import os
 import time
 from typing import Optional, List, Callable
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientWebSocketResponse
 from homeassistant.const import ATTR_BATTERY_LEVEL, MAJOR_VERSION, \
     MINOR_VERSION
 
@@ -60,6 +60,8 @@ def fix_attrs(state: dict):
 def get_attrs(state: dict) -> dict:
     return {k: state[k] for k in ATTRS if k in state}
 
+class EWeLinkSocket(ClientWebSocketResponse):
+    pass
 
 class EWeLinkRegistry:
     """
@@ -145,7 +147,7 @@ class EWeLinkRegistry:
         """Load devices list from Cloud Servers."""
         newdevices = await self.cloud.load_devices()
         if newdevices is not None:
-            newdevices = {p['deviceid']: p for p in newdevices}
+            newdevices = {p['itemData']['deviceid']: p for p in newdevices}
             if cachefile:
                 save_cache(cachefile, newdevices)
             self.devices = newdevices
@@ -176,8 +178,8 @@ class EWeLinkRegistry:
         seq = str(int(time.time() * 1000))
 
         device: dict = self.devices[deviceid]
-        can_local = self.local.started and device.get('host')
-        can_cloud = self.cloud.started and device.get('online')
+        can_local = self.local.started and device.get('itemData').get('host')
+        can_cloud = self.cloud.started and device.get('itemData').get('online')
 
         state = {}
 
@@ -250,14 +252,14 @@ class EWeLinkBase:
         # TODO: fix init name
         if self.channels and len(self.channels) == 1:
             ch = str(self.channels[0] - 1)
-            self._name = device.get('tags', {}).get('ck_channel_name', {}). \
-                             get(ch) or device.get('name')
+            self._name = device.get('itemData').get('tags', {}).get('ck_channel_name', {}). \
+                             get(ch) or device.get('itemData').get('name')
         else:
-            self._name = device.get('name')
+            self._name = device.get('itemData').get('name')
 
-        state = device['params']
+        state = device.get('itemData')['params']
 
-        self._attrs = device['extra'] or {}
+        self._attrs = device.get('itemData')['extra'] or {}
         # don't know if deviceType only in Sonoff TH
         # https://github.com/AlexxIT/SonoffLAN/issues/158
         self._is_th_3_4_0 = 'deviceType' in state
@@ -344,7 +346,7 @@ class EWeLinkEntity(EWeLinkBase):
     @property
     def available(self):
         device: dict = self.registry.devices[self.deviceid]
-        return device['available']
+        return device.get('itemData')['available']
 
     async def async_added_to_hass(self):
         self._init()

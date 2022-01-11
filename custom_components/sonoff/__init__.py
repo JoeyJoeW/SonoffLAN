@@ -15,7 +15,8 @@ from homeassistant.helpers.typing import HomeAssistantType
 from . import utils
 from .sonoff_camera import EWeLinkCameras
 from .sonoff_cloud import CloudPowHelper, fix_attrs as fix_attrs1
-from .sonoff_main import EWeLinkRegistry, fix_attrs as fix_attrs2
+from .sonoff_main import EWeLinkRegistry, fix_attrs as fix_attrs2, EWeLinkSocket
+import json
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -137,7 +138,7 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
         auto_sensors = []
 
     def add_device(deviceid: str, state: dict, *args):
-        device = registry.devices[deviceid]
+        device = registry.devices[deviceid]['itemData']
 
         # device with handlers already added
         if 'handlers' in device:
@@ -159,7 +160,7 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
         # TODO: fix remove camera info from logs
         state.pop('partnerDevice', None)
 
-        info = {'uiid': device['uiid'], 'extra': device['extra'],
+        info = {'uiid': device['uuid'], 'extra': device['extra'],
                 'params': state}
         _LOGGER.debug(f"{deviceid} == Init   | {info}")
 
@@ -231,11 +232,12 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
 
         # immediately add all cloud devices
         for deviceid, device in registry.devices.items():
-            if 'params' not in device:
+            _LOGGER.debug(json.dumps(device))
+            if 'params' not in device['itemData']:
                 continue
-            conn = 'online' if device['online'] else 'offline'
-            device['params']['cloud'] = conn
-            add_device(deviceid, device['params'], None)
+            conn = 'online' if device['itemData']['online'] else 'offline'
+            device['itemData']['params']['cloud'] = conn
+            add_device(deviceid, device['itemData']['params'], None)
 
         await registry.cloud_start()
 

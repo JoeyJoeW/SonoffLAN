@@ -25,7 +25,7 @@ async def async_setup_platform(hass, config, add_entities,
     deviceid = discovery_info['deviceid']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid].get('uiid')
+    uiid = registry.devices[deviceid]['itemData'].get('uiid')
     if uiid == 102:
         add_entities([WiFiDoorWindowSensor(registry, deviceid)])
     elif uiid == 2026:
@@ -51,7 +51,7 @@ class WiFiDoorWindowSensor(EWeLinkBinarySensor):
     _device_class = None
 
     async def async_added_to_hass(self) -> None:
-        device: dict = self.registry.devices[self.deviceid]
+        device: dict = self.registry.devices[self.deviceid]['itemData']
         self._device_class = device.get('device_class', DEVICE_CLASS_DOOR)
 
         self._init()

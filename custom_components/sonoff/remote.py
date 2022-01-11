@@ -35,7 +35,7 @@ class EWeLinkRemote(EWeLinkToggle, RemoteEntity):
 
         # init button names
         self._buttons = {}
-        device = registry.devices[deviceid]
+        device = registry.devices[deviceid]['itemData']
         for remote in device.get('tags', {}).get('zyx_info', []):
             buttons = remote['buttonName']
             if len(buttons) > 1:

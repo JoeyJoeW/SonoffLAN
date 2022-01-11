@@ -9,6 +9,8 @@ import json
 import logging
 import time
 from typing import Optional, Callable, List
+import random
+import string
 
 from aiohttp import ClientSession, WSMsgType, ClientConnectorError, \
     WSMessage, ClientWebSocketResponse
@@ -24,6 +26,9 @@ DATA_ERROR = {
     504: 'timeout',
     None: 'unknown'
 }
+
+HEADER_API_ID = 'X-CK-Appid'
+HEADER_NONCE = 'X-CK-Nonce'
 
 CLOUD_ERROR = (
     "Cloud mode cannot work simultaneously with two copies of component. "
@@ -97,11 +102,13 @@ class EWeLinkApp:
 
 
 class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
-    devices: dict = None
+    _devices: dict = None
     _handlers = None
     _ws: Optional[ClientWebSocketResponse] = None
 
-    _baseurl = 'https://eu-api.coolkit.cc:8080/'
+    _baseurl = 'https://eu-apia.coolkit.cc/'
+    _dispatchUrl = 'https://eu-dispa.coolkit.cc/'
+
     _apikey = None
     _token = None
     _last_ts = 0
@@ -109,47 +116,61 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
     def __init__(self, session: ClientSession):
         self.session = session
 
+    @property
+    def devices(self) ->  dict:
+        return self._devices
+
     async def _api(self, mode: str, api: str, payload: dict) \
             -> Optional[dict]:
         """Send API request to Cloud Server.
 
         :param mode: `get`, `post` or `login`
-        :param api: api url without host: `api/user/login`
+        :param api: api url without host: `v2/user/login`
         :param payload: url params for `get` mode or json body for `post` mode
         :return: response as dict
         """
-        ts = int(time.time())
-        payload.update({
-            'appid': self.appid,
-            'nonce': str(ts),  # 8-digit random alphanumeric characters
-            'ts': ts,  # 10-digit standard timestamp
-            'version': 8
-        })
 
+        nonce = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
+
+
+        headers = {'Content-Type': "application/json", 'Authorization': self._getAuthHeader(payload), HEADER_API_ID: self.appid, HEADER_NONCE: nonce}
         if mode == 'post':
-            auth = "Bearer " + self._token
             coro = self.session.post(self._baseurl + api, json=payload,
-                                     headers={'Authorization': auth})
+                                     headers=headers)
         elif mode == 'get':
-            auth = "Bearer " + self._token
             coro = self.session.get(self._baseurl + api, params=payload,
-                                    headers={'Authorization': auth})
+                                    headers=headers)
         elif mode == 'login':
-            hex_dig = hmac.new(self.appsecret.encode(),
-                               json.dumps(payload).encode(),
-                               digestmod=hashlib.sha256).digest()
-            auth = "Sign " + base64.b64encode(hex_dig).decode()
             coro = self.session.post(self._baseurl + api, json=payload,
-                                     headers={'Authorization': auth})
+                                     headers=headers)
+        elif mode == 'dispatch':
+            coro = self.session.post(self._dispatchUrl + api, json=payload,
+                                    headers=headers)
         else:
             raise NotImplemented
 
         try:
             r = await coro
+            _LOGGER.debug(f"tes {mode} " + str(payload))
+            _LOGGER.debug(await r.read())
             return await r.json()
         except (Exception, RuntimeError) as e:
             _LOGGER.exception(f"Coolkit API error: {e}")
             return None
+
+    def _getAuthHeader(self, payload) -> str:
+        """Get the auth header for https requests
+
+        :return: header str
+        """
+        if self._token:
+            return f"Bearer {self._token}"
+        else:
+            hex_dig = hmac.new(self.appsecret.encode(),
+                               json.dumps(payload).encode(),
+                               digestmod=hashlib.sha256).digest()
+            encoded_dig = base64.b64encode(hex_dig).decode()
+            return f"Sign {encoded_dig}"
 
     async def _process_ws_msg(self, data: dict):
         """Process WebSocket message."""
@@ -160,7 +181,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
         if deviceid:
             _LOGGER.debug(f"{deviceid} <= Cloud3 | {data}")
 
-            device = self.devices[deviceid]
+            device = self._devices[deviceid]
 
             # if msg with device params
             if 'params' in data:
@@ -168,16 +189,16 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
                 # deal with online/offline state
                 if state.get('online') is False:
-                    device['online'] = False
+                    device.get('itemData')['online'] = False
                     state['cloud'] = 'offline'
-                elif device['online'] is False:
-                    device['online'] = True
+                elif device.get('itemData')['online'] is False:
+                    device.get('itemData')['online'] = True
                     state['cloud'] = 'online'
 
                 fix_attrs(deviceid, state)
 
                 for handler in self._handlers:
-                    handler(deviceid, state, data.get('seq'))
+                    handler(deviceid, state, data.get('sequence'))
 
             # response on our action update
             elif data['error'] == 0:
@@ -188,7 +209,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
                 await self._ws.send_json({
                     'action': 'query',
-                    'apikey': device['apikey'],
+                    'apikey': device.get('itemData')['apikey'],
                     'selfApikey': self._apikey,
                     'deviceid': deviceid,
                     'params': [],
@@ -203,13 +224,14 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
     async def _connect(self, fails: int = 0):
         """Permanent connection loop to Cloud Servers."""
-        resp = await self._api('post', 'dispatch/app', {'accept': 'ws'})
+        resp = await self._api('dispatch', 'dispatch/app', None)
         if resp:
             try:
                 url = f"wss://{resp['IP']}:{resp['port']}/api/ws"
                 self._ws = await self.session.ws_connect(
-                    url, heartbeat=145, ssl=False)
+                    url, heartbeat=152, ssl=False)
 
+                nonce = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
                 ts = time.time()
                 payload = {
                     'action': 'userOnline',
@@ -217,15 +239,18 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                     'apikey': self._apikey,
                     'userAgent': 'app',
                     'appid': self.appid,
-                    'nonce': str(int(ts / 100)),
+                    'nonce': nonce,
                     'ts': int(ts),
                     'version': 8,
                     'sequence': str(int(ts * 1000))
                 }
+
                 await self._ws.send_json(payload)
 
                 msg: WSMessage = await self._ws.receive()
+
                 resp = json.loads(msg.data)
+                _LOGGER.debug(resp)
                 if resp['error'] == 0:
                     _LOGGER.debug(f"Cloud init: {resp}")
 
@@ -282,25 +307,27 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             username = f"+{username}"
 
         pname = 'email' if '@' in username else 'phoneNumber'
-        payload = {pname: username, 'password': password}
-        resp = await self._api('login', 'api/user/login', payload)
-
-        if resp is None or 'region' not in resp:
+        payload = {pname: username, 'password': password, 'countryCode' : '+33'}
+        resp = await self._api('login', 'v2/user/login', payload)
+        data = resp['data']
+        if data is None or 'region' not in data:
             _LOGGER.error(f"Login error: {resp}")
             return False
 
-        region = resp['region']
+        region = data['region']
         if region != 'eu':
             # Users in Mainland China use: https://cn-api.coolkit.cn:8080
             # Other regions please use:    https//{region}-api.coolkit.cc:8080
             self._baseurl = self._baseurl.replace('eu', region) \
-                if region != 'cn' else 'https://cn-api.coolkit.cn:8080/'
+                if region != 'cn' else 'https://cn-apia.coolkit.cn/'
+            self._dispatchUrl = self._dispatchUrl.replace('eu', region) \
+                if region != 'cn' else 'https://cn-dispa.coolkit.cn/'
             _LOGGER.debug(f"Redirect to region: {region}")
-            resp = await self._api('login', 'api/user/login', payload)
+            resp = await self._api('login', 'v2/user/login', payload)
 
         try:
-            self._apikey = resp['user']['apikey']
-            self._token = resp['at']
+            self._apikey = data['user']['apikey']
+            self._token = data['at']
         except:
             _LOGGER.error(f"Login error: {resp}, region: {region}")
             return False
@@ -309,14 +336,78 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
     async def load_devices(self) -> Optional[list]:
         assert self._token, "Login first"
-        resp = await self._api('get', 'api/user/device', {'getTags': 1})
+        resp = await self._api('get', 'v2/device/thing', None)
         if resp['error'] == 0:
-            num = len(resp['devicelist'])
+            num = resp['data']['total']
             _LOGGER.debug(f"{num} devices loaded from the Cloud Server")
-            return resp['devicelist']
+            return [self.v2ToV1Format(x) for x in resp['data']['thingList']]
         else:
             _LOGGER.warning(f"Can't load devices: {resp}")
             return None
+
+
+    def v2ToV1Format(self, data) -> {}:
+        '''{
+  "name": "Outside Temp/Humidity",
+  "deviceid": "a4800225fe",
+  "apikey": "...",
+  "extra": {
+    "mac": "c5380325004b1200",
+    "apmac": "...",
+    "model": "NON-OTA-GL",
+    "description": "ZCL_HA_DEVICEID_TEMPERATURE_SENSOR",
+    "modelInfo": "5be28aaf1a9a77c347a6047b",
+    "manufacturer": "深圳松诺技术有限公司",
+    "brandId": "59e0dbc25c1af3a660cc1ac0",
+    "uiid": 1770,
+    "ui": "Zigbee温湿度传感器"
+  },
+  "brandName": "coolkit",
+  "brandLogo": "",
+  "showBrand": false,
+  "productModel": "ZCL_HA_DEVICEID_TEMPERATURE_SENSOR",
+  "devConfig": {},
+  "family": {
+    "familyid": "5ee3cdc889b2760007235669",
+    "index": -16,
+    "roomid": "5ee3cdc889b2760007235668"
+  },
+  "shareTo": [],
+  "devicekey": "...",
+  "online": true,
+  "params": {
+    "bindInfos": {
+      "gaction": [
+        "..."
+      ]
+    },
+    "subDevId": "c5380325004b1200",
+    "parentid": "1000fc53e8",
+    "battery": 100,
+    "trigTime": "1641413776168",
+    "temperature": "271",
+    "humidity": "9999"
+  },
+  "isSupportGroup": false
+}
+
+type	N	string	Type
+extra	N	object	Reference to associated tables
+onlineTime	N	string	Last time when device was online
+ip	N	string	ip address of device
+location	N	string	location where device was offline
+settings	N	object	Device settings
+groups	N	list	Group ID for groups device belongs to.One device can belong to multiple group.If device not in group,returns empty array[]
+params	N	object	Device parameters
+online	N	boolean	Device online or not
+createdAt	N	date	time when device was added
+devicekey	N	string	Device apikey
+deviceUrl	Y	string	Url of device detail page
+'''
+        _LOGGER.debug( data)
+
+        return data
+
 
     @property
     def started(self) -> bool:
@@ -325,7 +416,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
     async def start(self, handlers: List[Callable], devices: dict = None):
         assert self._token, "Login first"
         self._handlers = handlers
-        self.devices = devices
+        self._devices = devices
 
         asyncio.create_task(self._connect())
 
@@ -350,7 +441,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
         payload = {
             'action': 'query',
-            'apikey': self.devices[deviceid]['apikey'],
+            'apikey': self._devices[deviceid]['itemData']['apikey'],
             'selfApikey': self._apikey,
             'deviceid': deviceid,
             'params': [],
@@ -360,7 +451,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
         } if '_query' in data else {
             'action': 'update',
             # device apikey for shared devices
-            'apikey': self.devices[deviceid]['apikey'],
+            'apikey': self._devices[deviceid]['itemData']['apikey'],
             'selfApikey': self._apikey,
             'deviceid': deviceid,
             'userAgent': 'app',
@@ -384,21 +475,25 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 class CloudPowHelper:
     def __init__(self, cloud: EWeLinkCloud):
         # search pow devices
-        self.devices = [
+        self._devices = [
             device for device in cloud.devices.values()
-            if 'params' in device and 'uiActive' in device['params']]
-        if not self.devices:
+            if 'params' in device.get('itemData') and 'uiActive' in device.get('itemData')['params']]
+        if not self._devices:
             return
 
         self.cloud = cloud
 
-        _LOGGER.debug(f"Start refresh task for {len(self.devices)} POW")
+        _LOGGER.debug(f"Start refresh task for {len(self._devices)} POW")
 
         # noinspection PyProtectedMember
         self._cloud_process_ws_msg = cloud._process_ws_msg
         cloud._process_ws_msg = self._process_ws_msg
 
         asyncio.create_task(self.update())
+
+    @property
+    def devices(self):
+        return self._devices
 
     async def _process_ws_msg(self, data: dict):
         if 'params' in data and data['params'].get('uiActive') == 60:
@@ -419,11 +514,11 @@ class CloudPowHelper:
     async def update(self):
         if self.cloud.started:
             t = time.time()
-            for device in self.devices:
-                if t - device.get('powActiveTime', 0) > 3600:
-                    device['powActiveTime'] = t
+            for device in self._devices:
+                if t - device.get('itemData').get('powActiveTime', 0) > 3600:
+                    device.get('itemData')['powActiveTime'] = t
                     # set pow active status for 2 hours
-                    await self.cloud.send(device['deviceid'], {
+                    await self.cloud.send(device.get('itemData')['deviceid'], {
                         'uiActive': 7200}, None)
 
         # sleep for 1 minute
@@ -434,6 +529,6 @@ class CloudPowHelper:
     async def update_consumption(self):
         if self.cloud.started:
             _LOGGER.debug("Update consumption for all devices")
-            for device in self.devices:
-                await self.cloud.send(device['deviceid'], {
+            for device in self._devices:
+                await self.cloud.send(device.get('itemData')['deviceid'], {
                     'hundredDaysKwh': 'get'}, None)

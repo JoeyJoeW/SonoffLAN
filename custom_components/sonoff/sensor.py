@@ -14,6 +14,9 @@ try:  # support old Home Assistant version
 except:
     from homeassistant.helpers.entity import Entity as SensorEntity
 
+import logging
+_LOGGER = logging.getLogger(__name__)
+
 SENSORS = {
     'temperature': [DEVICE_CLASS_TEMPERATURE, '°C', None],
     # UNIT_PERCENTAGE is not on old versions
@@ -34,6 +37,10 @@ GLOBAL_ATTRS = ('local', 'cloud', 'rssi', ATTR_BATTERY_LEVEL)
 
 async def async_setup_platform(hass, config, add_entities,
                                discovery_info=None):
+    _LOGGER.debug(config)
+    _LOGGER.debug(add_entities)
+    _LOGGER.debug(discovery_info)
+
     if discovery_info is None:
         return
 
@@ -41,7 +48,9 @@ async def async_setup_platform(hass, config, add_entities,
     registry = hass.data[DOMAIN]
 
     attr = discovery_info.get('attribute')
-    uiid = registry.devices[deviceid].get('uiid')
+    _LOGGER.debug(registry.devices[deviceid])
+
+    uiid = registry.devices[deviceid]['itemData'].get('uiid')
 
     # skip duplicate attribute
     if uiid in (18, 1770) and attr in SONOFF_SC:

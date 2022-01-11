@@ -161,18 +161,18 @@ class EWeLinkLocal:
             }
 
             deviceid = properties['id']
-            device = self._devices.setdefault(deviceid, {})
+            device = self._devices.setdefault(deviceid, {'itemType': 1, 'itemData' : {}})
 
-            log = f"{deviceid} <= Local{state_change.value}"
+            log = f"{deviceid} <= Local{state_change.value} | {properties}"
 
             if properties.get('encrypt'):
-                devicekey = device.get('devicekey')
+                devicekey = device.get('itemData').get('devicekey')
                 if devicekey == 'skip':
                     return
                 if not devicekey:
                     _LOGGER.info(f"{log} | No devicekey for device")
                     # skip device next time
-                    device['devicekey'] = 'skip'
+                    device.get('itemData')['devicekey'] = 'skip'
                     return
 
                 data = decrypt(properties, devicekey)
@@ -214,39 +214,39 @@ class EWeLinkLocal:
 
             if properties['type'] == 'fan_light':
                 state = ifan03to02(state)
-                device['uiid'] = 'fan_light'
+                device.get('itemData').get('extra', {})['uiid'] = 'fan_light'
 
             host = str(ipaddress.ip_address(info.addresses[0]))
             # update every time device host change (alsow first time)
-            if device.get('host') != host:
+            if device.get('itemData').get('host') != host:
                 # state connection for attrs update
                 state['local'] = 'online'
                 # device host for local connection
-                device['host'] = host
+                device.get('itemData')['host'] = host
                 # update or set device init state
-                if 'params' in device:
-                    device['params'].update(state)
+                if 'params' in device.get('itemData'):
+                    device['itemData']['params'].update(state)
                 else:
-                    device['params'] = state
+                    device['itemData']['params'] = state
                     # set uiid with: strip, plug, light, rf
-                    device['uiid'] = properties['type']
+                    device['itemData'].get('extra', {})['uiid'] = properties['type']
 
             for handler in self._handlers:
                 handler(deviceid, state, seq)
 
         except:
-            _LOGGER.debug(
+            _LOGGER.exception(
                 f"Problem while processing zeroconf: {service_type}, {name}")
 
     async def check_offline(self, deviceid: str):
         """Try to get response from device after received Zeroconf Removed."""
         log = f"{deviceid} => Local4"
         device = self._devices[deviceid]
-        if device.get('check_offline') or device['host'] is None:
+        if device.get('itemData').get('check_offline') or device.get('itemData')['host'] is None:
             _LOGGER.debug(f"{log} | Skip parallel checks")
             return
 
-        device['check_offline'] = True
+        device.get('itemData')['check_offline'] = True
         sequence = str(int(time.time() * 1000))
 
         for t in range(20, 61, 20):
@@ -256,7 +256,7 @@ class EWeLinkLocal:
 
             conn = await self.send(deviceid, {'cmd': 'info'}, sequence, t)
             if conn == 'online':
-                device['check_offline'] = False
+                device.get('itemData')['check_offline'] = False
                 _LOGGER.debug(f"{log} | Welcome back!")
                 return
 
@@ -266,8 +266,8 @@ class EWeLinkLocal:
 
         _LOGGER.debug(f"{log} | Device offline")
 
-        device['check_offline'] = False
-        device['host'] = None
+        device.get('itemData')['check_offline'] = False
+        device.get('itemData')['host'] = None
 
         for handler in self._handlers:
             handler(deviceid, {'local': 'offline'}, None)
@@ -280,7 +280,7 @@ class EWeLinkLocal:
                 if data['_query'] is None else \
                 {'sledonline': data['_query']}
 
-        if device['uiid'] == 'fan_light' and 'switches' in data:
+        if device.get('itemData')['uiid'] == 'fan_light' and 'switches' in data:
             data = ifan02to03(data)
 
         # cmd for D1 and RF Bridge 433
@@ -294,13 +294,13 @@ class EWeLinkLocal:
         }
 
         if 'devicekey' in device:
-            payload = encrypt(payload, device['devicekey'])
+            payload = encrypt(payload, device.get('itemData')['devicekey'])
 
-        log = f"{deviceid} => Local4 | {data}"
+        log = f"{deviceid} => Local4 | {device.get('itemData')['host']}: {data}"
 
         try:
             r = await self.session.post(
-                f"http://{device['host']}:8081/zeroconf/{command}",
+                f"http://{device.get('itemData')['host']}:8081/zeroconf/{command}",
                 json=payload, headers=LOCAL_HEADERS, timeout=timeout)
             resp = await r.json()
             err = resp['error']

@@ -110,9 +110,9 @@ def guess_device_class(config: dict):
     fan_light) and different local API for each type. Without uiid iFan02 will
     be displayed as 4 switches.
     """
-    uiid = config.get('uiid')
+    uiid = config.get('itemData', {}).get('extra', {}).get('uiid')
     # DualR3 in cover mode
-    if uiid == 126 and config.get('params', {}).get('workMode') == 2:
+    if uiid == 126 and config.get('itemData', {}).get('params', {}).get('workMode') == 2:
         return 'cover'
     return UIIDS.get(uiid)
 
