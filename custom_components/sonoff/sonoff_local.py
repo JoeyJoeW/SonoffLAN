@@ -17,6 +17,7 @@ from zeroconf import ServiceBrowser, Zeroconf, ServiceStateChange
 _LOGGER = logging.getLogger(__name__)
 
 LOCAL_HEADERS = {'Connection': 'close'}
+import pprint
 
 
 # some venv users don't have Crypto.Util.Padding
@@ -131,6 +132,7 @@ class EWeLinkLocal:
     def start(self, handlers: List[Callable], devices: dict, zeroconf):
         self._handlers = handlers
         self._devices = devices
+
         self.browser = ServiceBrowser(zeroconf, '_ewelink._tcp.local.',
                                       handlers=[self._zeroconf_handler])
         # for beautiful logs
@@ -162,7 +164,8 @@ class EWeLinkLocal:
 
             deviceid = properties['id']
             device = self._devices.setdefault(deviceid, {'itemType': 1, 'itemData' : {}})
-
+            _LOGGER.debug(info)
+            _LOGGER.debug(properties)
             log = f"{deviceid} <= Local{state_change.value} | {properties}"
 
             if properties.get('encrypt'):
@@ -280,7 +283,7 @@ class EWeLinkLocal:
                 if data['_query'] is None else \
                 {'sledonline': data['_query']}
 
-        if device.get('itemData')['uiid'] == 'fan_light' and 'switches' in data:
+        if device.get('itemData').get('extra')['uiid'] == 'fan_light' and 'switches' in data:
             data = ifan02to03(data)
 
         # cmd for D1 and RF Bridge 433
@@ -293,10 +296,10 @@ class EWeLinkLocal:
             'data': data
         }
 
-        if 'devicekey' in device:
+        if 'devicekey' in device.get('itemData'):
             payload = encrypt(payload, device.get('itemData')['devicekey'])
 
-        log = f"{deviceid} => Local4 | {device.get('itemData')['host']}: {data}"
+        log = f"{deviceid} => Local4 | {device.get('itemData')['host'].replace('.', '|')}: {data}"
 
         try:
             r = await self.session.post(

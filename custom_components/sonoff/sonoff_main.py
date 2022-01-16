@@ -99,12 +99,12 @@ class EWeLinkRegistry:
             sequence = int(sequence)
             ts = time.time()
             # skip same and lower sequence in last 10 seconds
-            if ('seq' in device and ts - device['seq_ts'] < 10 and
-                    sequence <= device['seq']):
+            if ('seq' in device.get('itemData') and ts - device.get('itemData')['seq_ts'] < 10 and
+                    sequence <= device.get('itemData')['seq']):
                 _LOGGER.debug("Skip update with same sequence")
                 return
-            device['seq'] = sequence
-            device['seq_ts'] = ts
+            device.get('itemData')['seq'] = sequence
+            device.get('itemData')['seq_ts'] = ts
 
         # check when cloud offline first time
         if state.get('cloud') == 'offline' and device.get('host'):
@@ -113,7 +113,7 @@ class EWeLinkRegistry:
 
         if 'handlers' in device:
             # TODO: right place?
-            device['available'] = device.get('online') or device.get('host')
+            device.get('itemData')['available'] = device.get('itemData').get('online') or device.get('itemData').get('host')
 
             fix_attrs(state)
 

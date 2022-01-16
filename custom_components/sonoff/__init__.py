@@ -138,7 +138,7 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
         auto_sensors = []
 
     def add_device(deviceid: str, state: dict, *args):
-        device = registry.devices[deviceid]['itemData']
+        device = registry.devices[deviceid]
 
         # device with handlers already added
         if 'handlers' in device:
@@ -152,15 +152,15 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
             return
 
         # TODO: right place?
-        device['available'] = device.get('online') or device.get('host')
+        device['itemData']['available'] = device['itemData'].get('online') or device['itemData'].get('host')
 
         # collect info for logs
-        device['extra'] = utils.get_device_info(device)
+        device['extra_log'] = utils.get_device_info(device)
 
         # TODO: fix remove camera info from logs
         state.pop('partnerDevice', None)
 
-        info = {'uiid': device['uuid'], 'extra': device['extra'],
+        info = {'uiid': device['itemData'].get('uiid'), 'extra': device['extra_log'],
                 'params': state}
         _LOGGER.debug(f"{deviceid} == Init   | {info}")
 
