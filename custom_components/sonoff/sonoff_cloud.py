@@ -229,7 +229,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             try:
                 url = f"wss://{resp['IP']}:{resp['port']}/api/ws"
                 self._ws = await self.session.ws_connect(
-                    url, heartbeat=152, ssl=False)
+                    url, heartbeat=145, ssl=False)
 
                 nonce = ''.join(random.choice(string.ascii_letters + string.digits) for i in range(8))
                 ts = time.time()
@@ -268,6 +268,8 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                         elif msg.type == WSMsgType.ERROR:
                             _LOGGER.debug(f"Cloud WS Error: {msg.data}")
                             break
+
+
 
                 else:
                     _LOGGER.debug(f"Cloud error: {resp}")
