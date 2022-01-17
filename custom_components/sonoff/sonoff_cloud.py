@@ -257,6 +257,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                     fails = 0
 
                     async for msg in self._ws:
+                        _LOGGER.debug(f"{msg.type} | {msg}")
                         if msg.type == WSMsgType.TEXT:
                             resp = json.loads(msg.data)
                             await self._process_ws_msg(resp)
@@ -268,9 +269,11 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                         elif msg.type == WSMsgType.ERROR:
                             _LOGGER.debug(f"Cloud WS Error: {msg.data}")
                             break
-
-
-
+                        
+                        elif msg.type == WSMsgType.PONG:
+                            _LOGGER.debug(f"pong: {msg.data}")
+                            
+                    _LOGGER.debug(f"is closed {self._ws.closed} {self._ws.__dict__}") 
                 else:
                     _LOGGER.debug(f"Cloud error: {resp}")
 

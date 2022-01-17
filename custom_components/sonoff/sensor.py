@@ -37,9 +37,6 @@ GLOBAL_ATTRS = ('local', 'cloud', 'rssi', ATTR_BATTERY_LEVEL)
 
 async def async_setup_platform(hass, config, add_entities,
                                discovery_info=None):
-    _LOGGER.debug(config)
-    _LOGGER.debug(add_entities)
-    _LOGGER.debug(discovery_info)
 
     if discovery_info is None:
         return
@@ -48,9 +45,8 @@ async def async_setup_platform(hass, config, add_entities,
     registry = hass.data[DOMAIN]
 
     attr = discovery_info.get('attribute')
-    _LOGGER.debug(registry.devices[deviceid])
 
-    uiid = registry.devices[deviceid]['itemData'].get('uiid')
+    uiid = registry.devices[deviceid].get('itemData', {}).get('extra', {}).get('uiid')
 
     # skip duplicate attribute
     if uiid in (18, 1770) and attr in SONOFF_SC:

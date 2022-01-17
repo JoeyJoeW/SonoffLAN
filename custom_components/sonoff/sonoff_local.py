@@ -115,6 +115,8 @@ def ifan02to03(payload: dict) -> dict:
 
 class EWeLinkLocal:
     _devices: dict = None
+    _devicesOriginal: dict = None
+
     _handlers = None
     browser = None
 
@@ -137,6 +139,8 @@ class EWeLinkLocal:
                                       handlers=[self._zeroconf_handler])
         # for beautiful logs
         self.browser.name = 'Sonoff_LAN'
+        _LOGGER.debug(f'local start - {pprint.pformat(self._devices)}')
+
 
     def stop(self, *args):
         self.browser.cancel()
@@ -300,6 +304,8 @@ class EWeLinkLocal:
             payload = encrypt(payload, device.get('itemData')['devicekey'])
 
         log = f"{deviceid} => Local4 | {device.get('itemData')['host'].replace('.', '|')}: {data}"
+        _LOGGER.debug(f"http://{device.get('itemData')['host']}:8081/zeroconf/{command}")
+        _LOGGER.debug(f"{payload}")
 
         try:
             r = await self.session.post(
