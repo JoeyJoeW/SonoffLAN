@@ -248,14 +248,12 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                 msg: WSMessage = await self._ws.receive()
 
                 resp = json.loads(msg.data)
-                _LOGGER.debug(resp)
                 if resp['error'] == 0:
                     _LOGGER.debug(f"Cloud init: {resp}")
 
                     fails = 0
 
                     async for msg in self._ws:
-                        _LOGGER.debug(f"{msg.type} | {msg}")
                         if msg.type == WSMsgType.TEXT:
                             resp = json.loads(msg.data)
                             await self._process_ws_msg(resp)
@@ -299,13 +297,13 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
         asyncio.create_task(self._connect(fails))
 
-    async def login(self, username: str, password: str) -> bool:
+    async def login(self, username: str, password: str, countryCode: str) -> bool:
         # add a plus to the beginning of the phone number
         if '@' not in username and not username.startswith('+'):
             username = f"+{username}"
 
         pname = 'email' if '@' in username else 'phoneNumber'
-        payload = {pname: username, 'password': password, 'countryCode' : '+33'}
+        payload = {pname: username, 'password': password, 'countryCode' : countryCode}
         resp = await self._api('login', 'v2/user/login', payload)
         data = resp['data']
         if data is None or 'region' not in data:

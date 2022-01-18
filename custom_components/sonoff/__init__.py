@@ -51,6 +51,7 @@ CONF_DEFAULT_CLASS = 'default_class'
 CONF_DEVICEKEY = 'devicekey'
 CONF_RELOAD = 'reload'
 CONF_RFBRIDGE = 'rfbridge'
+CONF_COUNTRY_CODE = 'countryCode'
 
 CONF_MODES = ['auto', 'cloud', 'local']
 CONF_RELOADS = ['once', 'always']
@@ -216,7 +217,8 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
 
     if has_credentials and not local_once:
         if await registry.cloud_login(config[CONF_USERNAME],
-                                      config[CONF_PASSWORD]):
+                                      config[CONF_PASSWORD],
+                                      config[CONF_COUNTRY_CODE]):
             await registry.cloud_load_devices(cachefile)
 
         else:

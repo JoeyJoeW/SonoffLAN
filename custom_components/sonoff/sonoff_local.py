@@ -139,8 +139,6 @@ class EWeLinkLocal:
                                       handlers=[self._zeroconf_handler])
         # for beautiful logs
         self.browser.name = 'Sonoff_LAN'
-        _LOGGER.debug(f'local start - {pprint.pformat(self._devices)}')
-
 
     def stop(self, *args):
         self.browser.cancel()
@@ -168,9 +166,7 @@ class EWeLinkLocal:
 
             deviceid = properties['id']
             device = self._devices.setdefault(deviceid, {'itemType': 1, 'itemData' : {}})
-            _LOGGER.debug(info)
-            _LOGGER.debug(properties)
-            log = f"{deviceid} <= Local{state_change.value} | {properties}"
+            log = f"{deviceid} <= Local{state_change.value}"
 
             if properties.get('encrypt'):
                 devicekey = device.get('itemData').get('devicekey')

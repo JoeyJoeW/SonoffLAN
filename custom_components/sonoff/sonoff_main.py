@@ -140,8 +140,8 @@ class EWeLinkRegistry:
         """Load devices from cache."""
         self.devices = load_cache(cachefile)
 
-    async def cloud_login(self, username: str, password: str):
-        return await self.cloud.login(username, password)
+    async def cloud_login(self, username: str, password: str, countryCode: str):
+        return await self.cloud.login(username, password, countryCode)
 
     async def cloud_load_devices(self, cachefile: str = None):
         """Load devices list from Cloud Servers."""
