@@ -214,11 +214,11 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
     # in mode=local with reload=once - do not connect to cloud servers
     local_once = (mode == 'local' and config[CONF_RELOAD] == 'once' and
                   registry.devices)
-
+    _LOGGER.debug(f"{config}")
     if has_credentials and not local_once:
         if await registry.cloud_login(config[CONF_USERNAME],
                                       config[CONF_PASSWORD],
-                                      config[CONF_COUNTRY_CODE]):
+                                      f"+{config[CONF_COUNTRY_CODE]}"):
             await registry.cloud_load_devices(cachefile)
 
         else:
