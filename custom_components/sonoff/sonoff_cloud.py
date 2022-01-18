@@ -16,6 +16,29 @@ from aiohttp import ClientSession, WSMsgType, ClientConnectorError, \
     WSMessage, ClientWebSocketResponse
 from homeassistant.const import ATTR_BATTERY_LEVEL
 
+
+import json
+from aiohttp import  ClientWebSocketResponse as ClientWebSocketResponse
+from typing import Any, Iterable, Optional, Tuple, cast
+from aiohttp.http import (
+    WSMessage
+)
+from aiohttp.helpers import call_later, set_result
+import asyncio
+import async_timeout
+
+
+from aiohttp.http import (
+    WS_CLOSED_MESSAGE,
+    WS_CLOSING_MESSAGE,
+    WebSocketError,
+    WSCloseCode,
+    WSMessage,
+    WSMsgType,
+)
+from aiohttp.streams import EofStream
+from aiohttp.client_exceptions import ClientError
+
 _LOGGER = logging.getLogger(__name__)
 
 RETRY_DELAYS = [0, 15, 60, 5 * 60, 15 * 60, 60 * 60]
@@ -65,6 +88,100 @@ def fix_attrs(deviceid: str, state: dict):
                     state[k] = int(state[k]) / 100.0
     except:
         pass
+
+class EWeLinkSocket(ClientWebSocketResponse):
+
+    def _cancel_heartbeat(self) -> None:
+        if self._pong_response_cb is not None:
+            self._pong_response_cb.cancel()
+            self._pong_response_cb = None
+
+        if self._heartbeat_cb is not None:
+            self._heartbeat_cb.cancel()
+            self._heartbeat_cb = None
+
+    def _reset_heartbeat(self) -> None:
+        self._cancel_heartbeat()
+
+        if self._heartbeat is not None:
+            self._heartbeat_cb = call_later(
+                self._send_heartbeat, self._heartbeat, self._loop
+            )
+
+    def _send_heartbeat(self) -> None:
+        if self._heartbeat is not None and not self._closed:
+            # fire-and-forget a task is not perfect but maybe ok for
+            # sending ping. Otherwise we need a long-living heartbeat
+            # task in the class.
+            _LOGGER.debug("ping")
+
+            self._loop.create_task(self._writer.ping("ping"))
+
+            if self._pong_response_cb is not None:
+                self._pong_response_cb.cancel()
+            self._pong_response_cb = call_later(
+                self._pong_not_received, self._pong_heartbeat, self._loop
+            )
+
+
+    async def receive(self, timeout: Optional[float] = None) -> WSMessage:
+        while True:
+            if self._waiting is not None:
+                raise RuntimeError("Concurrent call to receive() is not allowed")
+
+            if self._closed:
+                return WS_CLOSED_MESSAGE
+            elif self._closing:
+                await self.close()
+                return WS_CLOSED_MESSAGE
+
+            try:
+                self._waiting = self._loop.create_future()
+                try:
+                    async with async_timeout.timeout(timeout or self._receive_timeout):
+                        msg = await self._reader.read()
+                finally:
+                    waiter = self._waiting
+                    self._waiting = None
+                    set_result(waiter, True)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                self._close_code = WSCloseCode.ABNORMAL_CLOSURE
+                raise
+            except EofStream:
+                self._close_code = WSCloseCode.OK
+                await self.close()
+                return WSMessage(WSMsgType.CLOSED, None, None)
+            except ClientError:
+                self._closed = True
+                self._close_code = WSCloseCode.ABNORMAL_CLOSURE
+                return WS_CLOSED_MESSAGE
+            except WebSocketError as exc:
+                self._close_code = exc.code
+                await self.close(code=exc.code)
+                return WSMessage(WSMsgType.ERROR, exc, None)
+            except Exception as exc:
+                self._exception = exc
+                self._closing = True
+                self._close_code = WSCloseCode.ABNORMAL_CLOSURE
+                await self.close()
+                return WSMessage(WSMsgType.ERROR, exc, None)
+
+            if msg.type == WSMsgType.CLOSE:
+                self._closing = True
+                self._close_code = msg.data
+                if not self._closed and self._autoclose:
+                    await self.close()
+            elif msg.type == WSMsgType.CLOSING:
+                self._closing = True
+            elif msg.type == WSMsgType.PING and self._autoping:
+                await self.pong(msg.data)
+                continue
+            elif msg.type == WSMsgType.PONG and self._autoping:
+                self._reset_heartbeat()
+                _LOGGER.debug("pong")
+
+                continue
+            return msg
 
 
 class ResponseWaiter:

@@ -9,7 +9,7 @@ from aiohttp import ClientSession, ClientWebSocketResponse
 from homeassistant.const import ATTR_BATTERY_LEVEL, MAJOR_VERSION, \
     MINOR_VERSION
 
-from .sonoff_cloud import EWeLinkCloud
+from .sonoff_cloud import EWeLinkCloud, EWeLinkClientWebSocketResponse
 from .sonoff_local import EWeLinkLocal
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,8 +60,6 @@ def fix_attrs(state: dict):
 def get_attrs(state: dict) -> dict:
     return {k: state[k] for k in ATTRS if k in state}
 
-class EWeLinkSocket(ClientWebSocketResponse):
-    pass
 
 class EWeLinkRegistry:
     """
