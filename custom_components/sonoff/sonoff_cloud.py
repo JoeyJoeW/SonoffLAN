@@ -151,8 +151,6 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
 
         try:
             r = await coro
-            _LOGGER.debug(f"tes {mode} " + str(payload))
-            _LOGGER.debug(await r.read())
             return await r.json()
         except (Exception, RuntimeError) as e:
             _LOGGER.exception(f"Coolkit API error: {e}")
@@ -269,11 +267,6 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                         elif msg.type == WSMsgType.ERROR:
                             _LOGGER.debug(f"Cloud WS Error: {msg.data}")
                             break
-                        
-                        elif msg.type == WSMsgType.PONG:
-                            _LOGGER.debug(f"pong: {msg.data}")
-                            
-                    _LOGGER.debug(f"is closed {self._ws.closed} {self._ws.__dict__}") 
                 else:
                     _LOGGER.debug(f"Cloud error: {resp}")
 
@@ -409,7 +402,6 @@ createdAt	N	date	time when device was added
 devicekey	N	string	Device apikey
 deviceUrl	Y	string	Url of device detail page
 '''
-        _LOGGER.debug( data)
 
         return data
 

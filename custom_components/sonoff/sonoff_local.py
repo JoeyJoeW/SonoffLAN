@@ -303,9 +303,7 @@ class EWeLinkLocal:
         if 'devicekey' in device.get('itemData'):
             payload = encrypt(payload, device.get('itemData')['devicekey'])
 
-        log = f"{deviceid} => Local4 | {device.get('itemData')['host'].replace('.', '|')}: {data}"
-        _LOGGER.debug(f"http://{device.get('itemData')['host']}:8081/zeroconf/{command}")
-        _LOGGER.debug(f"{payload}")
+        log = f"{deviceid} => Local4 | {data}"
 
         try:
             r = await self.session.post(

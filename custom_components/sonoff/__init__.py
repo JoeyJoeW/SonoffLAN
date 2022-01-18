@@ -89,9 +89,6 @@ CONFIG_SCHEMA = vol.Schema({
 }, extra=vol.ALLOW_EXTRA)
 
 class EWeLinkSocket(ClientWebSocketResponse):
-    async def ping(self, message: bytes = b"ping") -> None:
-        _LOGGER.debug("ping hrh")
-        await self._writer.ping(message)
 
     def _cancel_heartbeat(self) -> None:
         if self._pong_response_cb is not None:
@@ -125,12 +122,6 @@ class EWeLinkSocket(ClientWebSocketResponse):
                 self._pong_not_received, self._pong_heartbeat, self._loop
             )
 
-    def _pong_not_received(self) -> None:
-        if not self._closed:
-            self._closed = True
-            self._close_code = WSCloseCode.ABNORMAL_CLOSURE
-            self._exception = asyncio.TimeoutError()
-            self._response.close()
 
     async def receive(self, timeout: Optional[float] = None) -> WSMessage:
         while True:
@@ -356,7 +347,6 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
 
         # immediately add all cloud devices
         for deviceid, device in registry.devices.items():
-            _LOGGER.debug(json.dumps(device))
             if 'params' not in device['itemData']:
                 continue
             conn = 'online' if device['itemData']['online'] else 'offline'
