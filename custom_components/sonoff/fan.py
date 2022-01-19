@@ -4,7 +4,6 @@ Firmware   | LAN type  | uiid | Product Model
 PSF-B04-GL | strip     | 34   | iFan02 (Sonoff iFan02)
 PSF-BFB-GL | fan_light | 34   | iFan (Sonoff iFan03)
 
-https://github.com/AlexxIT/SonoffLAN/issues/30
 """
 from typing import Optional, List
 
@@ -69,7 +68,6 @@ class SonoffFanBase(EWeLinkEntity, FanEntity):
 
 class SonoffFan02(SonoffFanBase):
     def _is_on_list(self, state: dict) -> List[bool]:
-        # https://github.com/AlexxIT/SonoffLAN/issues/146
         switches = sorted(state['switches'], key=lambda i: i['outlet'])
         return [
             switches[channel - 1]['switch'] == 'on'

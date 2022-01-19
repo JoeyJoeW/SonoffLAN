@@ -212,8 +212,6 @@ class EWeLinkRegistry:
         simultaneously to different channels. This causes errors on local and
         cloud connections.
 
-        https://github.com/AlexxIT/SonoffLAN/issues/139
-        https://github.com/AlexxIT/SonoffLAN/issues/151
         """
         assert 'switches' in params, params
 
@@ -259,7 +257,6 @@ class EWeLinkBase:
 
         self._attrs = device.get('itemData')['extra'] or {}
         # don't know if deviceType only in Sonoff TH
-        # https://github.com/AlexxIT/SonoffLAN/issues/158
         self._is_th_3_4_0 = 'deviceType' in state
 
         if force_refresh:
@@ -274,7 +271,6 @@ class EWeLinkBase:
     def _is_on_list(self, state: dict) -> List[bool]:
         if self.channels:
             # very rarely channels can be reversed
-            # https://github.com/AlexxIT/SonoffLAN/issues/146
             return [
                 switch['switch'] == 'on'
                 for switch in state['switches']

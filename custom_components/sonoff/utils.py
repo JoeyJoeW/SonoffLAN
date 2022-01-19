@@ -194,8 +194,8 @@ RE_PRIVATE = re.compile(
     r"EWLK-\d{6}-[A-Z]{5})\b|(?<=ssid': ')[^']+")
 NOTIFY_TEXT = (
     '<a href="%s" target="_blank">Open Log<a> | '
-    '[New Issue on GitHub](https://github.com/AlexxIT/SonoffLAN/issues/new) | '
-    '[sonofflan@gmail.com](mailto:sonofflan@gmail.com)')
+    '[New Issue on GitHub](https://github.com/JoeyJoeW/SonoffLAN/issues/new) | '
+    '')
 
 HTML = ('<!DOCTYPE html><html><head><title>Sonoff Debug</title>'
         '<meta http-equiv="refresh" content="%s"></head>'

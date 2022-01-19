@@ -22,7 +22,6 @@ import pprint
 
 # some venv users don't have Crypto.Util.Padding
 # I don't know why pycryptodome is not installed on their systems
-# https://github.com/AlexxIT/SonoffLAN/issues/129
 
 def pad(data_to_pad: bytes, block_size: int):
     padding_len = block_size - len(data_to_pad) % block_size
@@ -78,8 +77,6 @@ def decrypt(payload: dict, devicekey: str):
 
 # iFan02 local and cloud API uses switches
 # iFan03 local API uses light/fan/speed and cloud API uses switches :(
-# https://github.com/AlexxIT/SonoffLAN/issues/30
-# https://github.com/AlexxIT/SonoffLAN/issues/153
 
 
 def ifan03to02(state) -> dict:
@@ -195,7 +192,6 @@ class EWeLinkLocal:
 
             _LOGGER.debug(f"{log} | {state} | {seq}")
 
-            # https://github.com/AlexxIT/SonoffLAN/issues/527
             if 'currentTemperature' in state:
                 try:
                     state['temperature'] = float(state['currentTemperature'])
@@ -207,7 +203,6 @@ class EWeLinkLocal:
                 except ValueError:
                     pass
 
-            # TH bug in local mode https://github.com/AlexxIT/SonoffLAN/issues/110
             if state.get('temperature') == 0 and state.get('humidity') == 0:
                 del state['temperature'], state['humidity']
 

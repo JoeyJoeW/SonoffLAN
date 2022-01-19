@@ -83,7 +83,6 @@ class EWeLinkToggle(EWeLinkEntity, ToggleEntity):
 
         Called from: `EntityPlatform._update_entity_states`
 
-        https://github.com/AlexxIT/SonoffLAN/issues/14
         """
         _LOGGER.debug(f"Refresh device state {self.deviceid}")
         await self.registry.send(self.deviceid, {'_query': self._sled_online})

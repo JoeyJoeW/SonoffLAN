@@ -43,7 +43,6 @@ _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = 'sonoff'
 
-# https://github.com/AlexxIT/SonoffLAN/issues/14
 SCAN_INTERVAL = timedelta(minutes=5)
 
 CONF_DEBUG = 'debug'

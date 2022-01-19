@@ -54,7 +54,7 @@ HEADER_NONCE = 'X-CK-Nonce'
 
 CLOUD_ERROR = (
     "Cloud mode cannot work simultaneously with two copies of component. "
-    "Read more: https://github.com/AlexxIT/SonoffLAN#config-examples")
+    "Read more: https://github.com/JoeyJoeW/SonoffLAN#config-examples")
 
 
 def fix_attrs(deviceid: str, state: dict):
@@ -66,7 +66,6 @@ def fix_attrs(deviceid: str, state: dict):
     - Sonoff POW: `power: "12.78"`
     """
     try:
-        # https://github.com/AlexxIT/SonoffLAN/issues/110
         if 'currentTemperature' in state:
             state['temperature'] = float(state['currentTemperature'])
         if 'currentHumidity' in state:
