@@ -14,8 +14,8 @@ from homeassistant.helpers.typing import HomeAssistantType
 
 from . import utils
 from .sonoff_camera import EWeLinkCameras
-from .sonoff_cloud import CloudPowHelper, fix_attrs as fix_attrs1
-from .sonoff_main import EWeLinkRegistry, fix_attrs as fix_attrs2, EWeLinkClientWebSocketResponse
+from .sonoff_cloud import CloudPowHelper, fix_attrs as fix_attrs1, EWeLinkClientWebSocketResponse
+from .sonoff_main import EWeLinkRegistry, fix_attrs as fix_attrs2
 import json
 from aiohttp import  ClientWebSocketResponse as ClientWebSocketResponse
 from typing import Any, Iterable, Optional, Tuple, cast

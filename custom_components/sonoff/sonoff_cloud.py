@@ -18,7 +18,6 @@ from homeassistant.const import ATTR_BATTERY_LEVEL
 
 
 import json
-from aiohttp import  ClientWebSocketResponse as ClientWebSocketResponse
 from typing import Any, Iterable, Optional, Tuple, cast
 from aiohttp.http import (
     WSMessage
@@ -89,7 +88,7 @@ def fix_attrs(deviceid: str, state: dict):
     except:
         pass
 
-class EWeLinkSocket(ClientWebSocketResponse):
+class EWeLinkClientWebSocketResponse(ClientWebSocketResponse):
 
     def _cancel_heartbeat(self) -> None:
         if self._pong_response_cb is not None:
