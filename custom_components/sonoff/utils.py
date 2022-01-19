@@ -91,6 +91,8 @@ def init_device_class(default_class: str = 'switch'):
         1770: 'sensor',  # ZCL_HA_DEVICEID_TEMPERATURE_SENSOR
         2026: 'binary_sensor',  # ZIGBEE_MOBILE_SENSOR
         3026: 'binary_sensor',  # ZIGBEE_DOOR_AND_WINDOW_SENSOR
+        3026: 'light',  # ZIGBEE_DOOR_AND_WINDOW_SENSOR
+
         # list local types
         'plug': switch1,  # Basic, Mini
         'diy_plug': switch1,  # Mini in DIY mode
