@@ -28,7 +28,7 @@ async def async_setup_platform(hass, config, add_entities,
     channels = discovery_info['channels']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid].get('uiid')
+    uiid = registry.devices.get(deviceid).get('itemData', {}).get('extra', {}).get('uiid')
     if uiid == 66:
         add_entities([ZigBeeBridge(registry, deviceid)])
     else:
@@ -83,7 +83,6 @@ class EWeLinkToggle(EWeLinkEntity, ToggleEntity):
 
         Called from: `EntityPlatform._update_entity_states`
 
-        https://github.com/AlexxIT/SonoffLAN/issues/14
         """
         _LOGGER.debug(f"Refresh device state {self.deviceid}")
         await self.registry.send(self.deviceid, {'_query': self._sled_online})

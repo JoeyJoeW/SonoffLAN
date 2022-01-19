@@ -9,19 +9,40 @@ from homeassistant.const import CONF_USERNAME, CONF_PASSWORD, CONF_DEVICES, \
     CONF_TIMEOUT, CONF_PAYLOAD_OFF
 from homeassistant.core import ServiceCall
 from homeassistant.helpers import config_validation as cv, discovery
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.aiohttp_client import async_get_clientsession, async_create_clientsession
 from homeassistant.helpers.typing import HomeAssistantType
 
 from . import utils
 from .sonoff_camera import EWeLinkCameras
-from .sonoff_cloud import CloudPowHelper, fix_attrs as fix_attrs1
+from .sonoff_cloud import CloudPowHelper, fix_attrs as fix_attrs1, EWeLinkClientWebSocketResponse
 from .sonoff_main import EWeLinkRegistry, fix_attrs as fix_attrs2
+import json
+from aiohttp import  ClientWebSocketResponse as ClientWebSocketResponse
+from typing import Any, Iterable, Optional, Tuple, cast
+from aiohttp.http import (
+    WSMessage
+)
+from aiohttp.helpers import call_later, set_result
+import asyncio
+import async_timeout
+
+
+from aiohttp.http import (
+    WS_CLOSED_MESSAGE,
+    WS_CLOSING_MESSAGE,
+    WebSocketError,
+    WSCloseCode,
+    WSMessage,
+    WSMsgType,
+)
+from aiohttp.streams import EofStream
+from aiohttp.client_exceptions import ClientError
+
 
 _LOGGER = logging.getLogger(__name__)
 
 DOMAIN = 'sonoff'
 
-# https://github.com/AlexxIT/SonoffLAN/issues/14
 SCAN_INTERVAL = timedelta(minutes=5)
 
 CONF_DEBUG = 'debug'
@@ -29,6 +50,7 @@ CONF_DEFAULT_CLASS = 'default_class'
 CONF_DEVICEKEY = 'devicekey'
 CONF_RELOAD = 'reload'
 CONF_RFBRIDGE = 'rfbridge'
+CONF_COUNTRY_CODE = 'countryCode'
 
 CONF_MODES = ['auto', 'cloud', 'local']
 CONF_RELOADS = ['once', 'always']
@@ -68,7 +90,7 @@ CONFIG_SCHEMA = vol.Schema({
 
 
 async def async_setup(hass: HomeAssistantType, hass_config: dict):
-    session = async_get_clientsession(hass)
+    session = async_create_clientsession(hass, ws_response_class=EWeLinkClientWebSocketResponse)
     hass.data[DOMAIN] = registry = EWeLinkRegistry(session)
 
     config = hass_config[DOMAIN]
@@ -97,10 +119,11 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
     # in mode=local with reload=once - do not connect to cloud servers
     local_once = (mode == 'local' and config[CONF_RELOAD] == 'once' and
                   registry.devices)
-
+    _LOGGER.debug(f"{config}")
     if has_credentials and not local_once:
         if await registry.cloud_login(config[CONF_USERNAME],
-                                      config[CONF_PASSWORD]):
+                                      config[CONF_PASSWORD],
+                                      f"+{config[CONF_COUNTRY_CODE]}"):
             await registry.cloud_load_devices(cachefile)
 
         else:
@@ -151,15 +174,15 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
             return
 
         # TODO: right place?
-        device['available'] = device.get('online') or device.get('host')
+        device['itemData']['available'] = device['itemData'].get('online') or device['itemData'].get('host')
 
         # collect info for logs
-        device['extra'] = utils.get_device_info(device)
+        device['extra_log'] = utils.get_device_info(device)
 
         # TODO: fix remove camera info from logs
         state.pop('partnerDevice', None)
 
-        info = {'uiid': device['uiid'], 'extra': device['extra'],
+        info = {'uiid': device['itemData'].get('uiid'), 'extra': device['extra_log'],
                 'params': state}
         _LOGGER.debug(f"{deviceid} == Init   | {info}")
 
@@ -231,11 +254,11 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
 
         # immediately add all cloud devices
         for deviceid, device in registry.devices.items():
-            if 'params' not in device:
+            if 'params' not in device['itemData']:
                 continue
-            conn = 'online' if device['online'] else 'offline'
-            device['params']['cloud'] = conn
-            add_device(deviceid, device['params'], None)
+            conn = 'online' if device['itemData']['online'] else 'offline'
+            device['itemData']['params']['cloud'] = conn
+            add_device(deviceid, device['itemData']['params'], None)
 
         await registry.cloud_start()
 

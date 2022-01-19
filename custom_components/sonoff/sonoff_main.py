@@ -5,7 +5,7 @@ import os
 import time
 from typing import Optional, List, Callable
 
-from aiohttp import ClientSession
+from aiohttp import ClientSession, ClientWebSocketResponse
 from homeassistant.const import ATTR_BATTERY_LEVEL, MAJOR_VERSION, \
     MINOR_VERSION
 
@@ -97,12 +97,12 @@ class EWeLinkRegistry:
             sequence = int(sequence)
             ts = time.time()
             # skip same and lower sequence in last 10 seconds
-            if ('seq' in device and ts - device['seq_ts'] < 10 and
-                    sequence <= device['seq']):
+            if ('seq' in device.get('itemData') and ts - device.get('itemData')['seq_ts'] < 10 and
+                    sequence <= device.get('itemData')['seq']):
                 _LOGGER.debug("Skip update with same sequence")
                 return
-            device['seq'] = sequence
-            device['seq_ts'] = ts
+            device.get('itemData')['seq'] = sequence
+            device.get('itemData')['seq_ts'] = ts
 
         # check when cloud offline first time
         if state.get('cloud') == 'offline' and device.get('host'):
@@ -111,7 +111,7 @@ class EWeLinkRegistry:
 
         if 'handlers' in device:
             # TODO: right place?
-            device['available'] = device.get('online') or device.get('host')
+            device.get('itemData')['available'] = device.get('itemData').get('online') or device.get('itemData').get('host')
 
             fix_attrs(state)
 
@@ -138,14 +138,14 @@ class EWeLinkRegistry:
         """Load devices from cache."""
         self.devices = load_cache(cachefile)
 
-    async def cloud_login(self, username: str, password: str):
-        return await self.cloud.login(username, password)
+    async def cloud_login(self, username: str, password: str, countryCode: str):
+        return await self.cloud.login(username, password, countryCode)
 
     async def cloud_load_devices(self, cachefile: str = None):
         """Load devices list from Cloud Servers."""
         newdevices = await self.cloud.load_devices()
         if newdevices is not None:
-            newdevices = {p['deviceid']: p for p in newdevices}
+            newdevices = {p['itemData']['deviceid']: p for p in newdevices}
             if cachefile:
                 save_cache(cachefile, newdevices)
             self.devices = newdevices
@@ -176,8 +176,8 @@ class EWeLinkRegistry:
         seq = str(int(time.time() * 1000))
 
         device: dict = self.devices[deviceid]
-        can_local = self.local.started and device.get('host')
-        can_cloud = self.cloud.started and device.get('online')
+        can_local = self.local.started and device.get('itemData').get('host')
+        can_cloud = self.cloud.started and device.get('itemData').get('online')
 
         state = {}
 
@@ -212,8 +212,6 @@ class EWeLinkRegistry:
         simultaneously to different channels. This causes errors on local and
         cloud connections.
 
-        https://github.com/AlexxIT/SonoffLAN/issues/139
-        https://github.com/AlexxIT/SonoffLAN/issues/151
         """
         assert 'switches' in params, params
 
@@ -250,16 +248,15 @@ class EWeLinkBase:
         # TODO: fix init name
         if self.channels and len(self.channels) == 1:
             ch = str(self.channels[0] - 1)
-            self._name = device.get('tags', {}).get('ck_channel_name', {}). \
-                             get(ch) or device.get('name')
+            self._name = device.get('itemData').get('tags', {}).get('ck_channel_name', {}). \
+                             get(ch) or device.get('itemData').get('name')
         else:
-            self._name = device.get('name')
+            self._name = device.get('itemData').get('name')
 
-        state = device['params']
+        state = device.get('itemData')['params']
 
-        self._attrs = device['extra'] or {}
+        self._attrs = device.get('itemData')['extra'] or {}
         # don't know if deviceType only in Sonoff TH
-        # https://github.com/AlexxIT/SonoffLAN/issues/158
         self._is_th_3_4_0 = 'deviceType' in state
 
         if force_refresh:
@@ -274,7 +271,6 @@ class EWeLinkBase:
     def _is_on_list(self, state: dict) -> List[bool]:
         if self.channels:
             # very rarely channels can be reversed
-            # https://github.com/AlexxIT/SonoffLAN/issues/146
             return [
                 switch['switch'] == 'on'
                 for switch in state['switches']
@@ -344,7 +340,7 @@ class EWeLinkEntity(EWeLinkBase):
     @property
     def available(self):
         device: dict = self.registry.devices[self.deviceid]
-        return device['available']
+        return device.get('itemData')['available']
 
     async def async_added_to_hass(self):
         self._init()

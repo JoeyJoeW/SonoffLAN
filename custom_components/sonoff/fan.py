@@ -4,7 +4,6 @@ Firmware   | LAN type  | uiid | Product Model
 PSF-B04-GL | strip     | 34   | iFan02 (Sonoff iFan02)
 PSF-BFB-GL | fan_light | 34   | iFan (Sonoff iFan03)
 
-https://github.com/AlexxIT/SonoffLAN/issues/30
 """
 from typing import Optional, List
 
@@ -35,7 +34,7 @@ async def async_setup_platform(hass, config, add_entities,
     registry = hass.data[DOMAIN]
 
     # iFan02 and iFan03 have the same uiid!
-    uiid = registry.devices[deviceid].get('uiid')
+    uiid = registry.devices[deviceid]['itemData'].get('uiid')
     if uiid == 34 or uiid == 'fan_light':
         # only channel 2 is used for switching
         add_entities([SonoffFan02(registry, deviceid, [2])])
@@ -69,7 +68,6 @@ class SonoffFanBase(EWeLinkEntity, FanEntity):
 
 class SonoffFan02(SonoffFanBase):
     def _is_on_list(self, state: dict) -> List[bool]:
-        # https://github.com/AlexxIT/SonoffLAN/issues/146
         switches = sorted(state['switches'], key=lambda i: i['outlet'])
         return [
             switches[channel - 1]['switch'] == 'on'
