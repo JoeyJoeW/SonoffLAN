@@ -39,7 +39,7 @@ Home Assistant custom component for control [Sonoff](https://www.itead.cc/) devi
 - support old devices wih 2.7 firmware (only cloud connection)
 - support new device types: color lights, sensors, covers
 - support eWeLink cameras with PTZ ([read more](#sonoff-gk-200mp2-b-camera))
-- support unavailable device state for both local and cloud connection 
+- support unavailable device state for both local and cloud connection
 - support refresh interval for Sonoff TH and Sonoff Pow ([read more](#refresh-interval-for-th-and-pow))
 - support sensors for Sonoff RF Bridge 433 ([read more](#rf-bridge-sensors))
 - support ZigBee Bridge and Devices
@@ -102,7 +102,7 @@ These devices work both on a local network and through the cloud.
 - [Sonoff Micro](https://www.itead.cc/sonoff-micro-5v-usb-smart-adaptor.html) fw 3.4.0
 - [Sonoff RF Bridge 433](https://www.itead.cc/sonoff-rf-bridge-433.html) (receive and send commands) fw 3.3.0, 3.4.0
 - [Sonoff D1](https://www.itead.cc/sonoff-d1-smart-dimmer-switch.html) (dimmer with brightness control) fw 3.4.0, 3.5.0
-- [Sonoff G1](https://www.itead.cc/sonoff-g1.html) fw 3.5.0 
+- [Sonoff G1](https://www.itead.cc/sonoff-g1.html) fw 3.5.0
 - [Sonoff Dual](https://www.itead.cc/sonoff-dual.html)
 - [Sonoff iFan02](https://www.itead.cc/sonoff-ifan02-wifi-smart-ceiling-fan-with-light.html) (light and fan with speed control) fw 3.3.0
 - [Sonoff iFan03](https://www.itead.cc/sonoff-ifan03-wifi-ceiling-fan-light-controller.html) (light and fan with speed control) fw 3.4.0
@@ -183,6 +183,7 @@ In other cases, it uses **only a cloud connection**:
 sonoff:
   username: mymail@gmail.com
   password: mypassword
+  countryCode: +33
 ```
 
 or
@@ -191,6 +192,7 @@ or
 sonoff:
   username: +910123456789  # important to use country code
   password: mypassword
+  countryCode: +33
 ```
 
 If you have Sonoff Pow or Sonoff TH, you might want to use this kind of config:
@@ -199,6 +201,7 @@ If you have Sonoff Pow or Sonoff TH, you might want to use this kind of config:
 sonoff:
   username: mymail@gmail.com
   password: mypassword
+  countryCode: +33
   force_update: [temperature, power]
   scan_interval: '00:05:00'  # (optional) default 5 minutes
   sensors: [temperature, humidity, power, current, voltage]
@@ -214,6 +217,7 @@ Recommended for users with a bad router, which may freeze due to multicast traff
 sonoff:
   username: mymail@gmail.com
   password: mypassword
+  countryCode: +33
   mode: cloud
 ```
 
@@ -225,6 +229,7 @@ Legacy mode. Only downloads a list of devices from Cloud Servers. Works with loc
 sonoff:
   username: mymail@gmail.com
   password: mypassword
+  countryCode: +33
   mode: local
   reload: always  # update device list every time HA starts
 ```
@@ -553,7 +558,7 @@ Check other videos on my [YouTube](https://www.youtube.com/c/AlexxIT) channel.
 
 [![Control Sonoff Devices with eWeLink firmware over LAN from Home Assistant](https://img.youtube.com/vi/X7PcYfDy57A/mqdefault.jpg)](https://www.youtube.com/watch?v=X7PcYfDy57A) [![Sonoff GK-200MP2-B Camera LAN Control](https://img.youtube.com/vi/TnFS7qWgKoo/mqdefault.jpg)](https://www.youtube.com/watch?v=TnFS7qWgKoo)
 
-Change **Name** or **Entity ID** of any device: 
+Change **Name** or **Entity ID** of any device:
 
 ![](demo_rename.gif)
 

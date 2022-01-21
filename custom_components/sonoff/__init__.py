@@ -119,7 +119,6 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
     # in mode=local with reload=once - do not connect to cloud servers
     local_once = (mode == 'local' and config[CONF_RELOAD] == 'once' and
                   registry.devices)
-    _LOGGER.debug(f"{config}")
     if has_credentials and not local_once:
         if await registry.cloud_login(config[CONF_USERNAME],
                                       config[CONF_PASSWORD],
@@ -182,7 +181,11 @@ async def async_setup(hass: HomeAssistantType, hass_config: dict):
         # TODO: fix remove camera info from logs
         state.pop('partnerDevice', None)
 
+<<<<<<< HEAD
+        info = {'uiid': device['itemData'].get('extra', {}).get('uiid'), 'extra': device['extra_log'],
+=======
         info = {'uiid': device['itemData'].get('uiid'), 'extra': device['extra_log'],
+>>>>>>> origin/master
                 'params': state}
         _LOGGER.debug(f"{deviceid} == Init   | {info}")
 

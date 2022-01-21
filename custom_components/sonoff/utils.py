@@ -91,6 +91,8 @@ def init_device_class(default_class: str = 'switch'):
         1770: 'sensor',  # ZCL_HA_DEVICEID_TEMPERATURE_SENSOR
         2026: 'binary_sensor',  # ZIGBEE_MOBILE_SENSOR
         3026: 'binary_sensor',  # ZIGBEE_DOOR_AND_WINDOW_SENSOR
+        3258: 'light',  # ZIGBEE_DOOR_LAMP
+
         # list local types
         'plug': switch1,  # Basic, Mini
         'diy_plug': switch1,  # Mini in DIY mode
@@ -120,20 +122,20 @@ def guess_device_class(config: dict):
 def get_device_info(config: dict):
     try:
         # https://developers.home-assistant.io/docs/device_registry_index/
-        sw = config['extra']['extra']['model']
+        sw = config.get('itemData', {})['extra']['model']
         # zigbee device
         if sw == 'NON-OTA-GL':
             return None
 
-        if 'fwVersion' in config['params']:
-            sw += f" v{config['params']['fwVersion']}"
+        if 'fwVersion' in config.get('itemData', {})['params']:
+            sw += f" v{config.get('itemData', {})['params']['fwVersion']}"
 
         return {
-            'manufacturer': config['brandName'],
-            'model': config['productModel'],
+            'manufacturer': config.get('itemData', {})['brandName'],
+            'model': config.get('itemData', {})['productModel'],
             'sw_version': sw
         }
-    except:
+    except Exception as e:
         return None
 
 
