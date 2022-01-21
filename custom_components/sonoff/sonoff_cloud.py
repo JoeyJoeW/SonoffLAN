@@ -15,10 +15,10 @@ import string
 from aiohttp import ClientSession, WSMsgType, ClientConnectorError, \
     WSMessage, ClientWebSocketResponse
 from homeassistant.const import ATTR_BATTERY_LEVEL
-
+from functools import partial
 
 import json
-from typing import Any, Iterable, Optional, Tuple, cast
+from typing import Any, Iterable, Optional, Tuple, cast, Callable, Dict
 from aiohttp.http import (
     WSMessage
 )
@@ -205,6 +205,7 @@ class ResponseWaiter:
             # remove future from waiters, in very rare cases, we can send two
             # commands with the same sequence
             self._waiters.pop(sequence, None)
+            _LOGGER.warn(f"Timeout for sequence {sequence}")
             return 'timeout'
 
         # remove future from waiters and return result
@@ -227,6 +228,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
     _apikey = None
     _token = None
     _last_ts = 0
+    _response_cb: Dict[str,asyncio.TimerHandle] = dict()
 
     def __init__(self, session: ClientSession):
         self.session = session
@@ -285,6 +287,30 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             encoded_dig = base64.b64encode(hex_dig).decode()
             return f"Sign {encoded_dig}"
 
+    async def _wait_response_and_check(self, sequence: str, deviceid: str, timeout: int = 5):
+        result = await self._wait_response(sequence,timeout)
+        if result == 'timeout':
+            resp = await self.get_device_info(deviceid)
+            data = resp['data']
+            device = self._devices[deviceid]
+
+            # if msg with device params
+            if 'params' in data:
+                state = data['params']
+
+                # deal with online/offline state
+                if state.get('online') is False:
+                    device.get('itemData')['online'] = False
+                    state['cloud'] = 'offline'
+                elif device.get('itemData')['online'] is False:
+                    device.get('itemData')['online'] = True
+                    state['cloud'] = 'online'
+
+                fix_attrs(deviceid, state)
+
+                for handler in self._handlers:
+                    handler(deviceid, state, data.get('sequence'))
+
     async def _process_ws_msg(self, data: dict):
         """Process WebSocket message."""
         await self._set_response(data)
@@ -319,17 +345,19 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                 sequence = str(int(time.time() * 1000))
                 _LOGGER.debug(f"{deviceid} => Cloud5 | "
                               f"Force update sequence: {sequence}")
-
-                await self._ws.send_json({
+                payload = {
                     'action': 'query',
-                    'apikey': device.get('itemData')['apikey'],
-                    'selfApikey': self._apikey,
+                    #'apikey': device.get('itemData')['apikey'],
+                    'apikey': self._apikey,
                     'deviceid': deviceid,
                     'params': [],
                     'userAgent': 'app',
                     'sequence': sequence,
                     'ts': 0
-                })
+                }
+
+                await self._ws.send_json(payload)
+                asyncio.create_task(self._wait_response_and_check(sequence, deviceid, 5))
 
         # all other msg
         else:
@@ -456,6 +484,19 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             _LOGGER.warning(f"Can't load devices: {resp}")
             return None
 
+    async def get_device_info(self, deviceid: str):
+        sequence = str(int(time.time() * 1000))
+        payload = {
+            'type': self._devices.get(deviceid).get('itemType'),
+            'id': deviceid
+        }
+        resp = await self._api('get', f'v2/device/thing/status', payload)
+        return resp
+
+    async def load_device_from_info(self, deviceid: str):
+        resp = await self.get_device_info(deviceid)
+        _LOGGER.debug(resp)
+
 
     def v2ToV1Format(self, data) -> {}:
         '''{
@@ -551,8 +592,7 @@ deviceUrl	Y	string	Url of device detail page
 
         payload = {
             'action': 'query',
-            'apikey': self._devices[deviceid]['itemData']['apikey'],
-            'selfApikey': self._apikey,
+            'apikey': self._apikey,
             'deviceid': deviceid,
             'params': [],
             'userAgent': 'app',
@@ -561,8 +601,7 @@ deviceUrl	Y	string	Url of device detail page
         } if '_query' in data else {
             'action': 'update',
             # device apikey for shared devices
-            'apikey': self._devices[deviceid]['itemData']['apikey'],
-            'selfApikey': self._apikey,
+            'apikey': self._apikey,
             'deviceid': deviceid,
             'userAgent': 'app',
             'sequence': sequence,
