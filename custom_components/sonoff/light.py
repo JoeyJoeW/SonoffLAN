@@ -9,8 +9,11 @@ import logging
 from homeassistant.components.light import SUPPORT_BRIGHTNESS, \
     ATTR_BRIGHTNESS, SUPPORT_COLOR, ATTR_HS_COLOR, SUPPORT_EFFECT, \
     ATTR_EFFECT, SUPPORT_COLOR_TEMP, \
-    ATTR_COLOR_TEMP, LightEntity
+    ATTR_COLOR_TEMP, LightEntity, COLOR_MODE_BRIGHTNESS, COLOR_MODE_HS, \
+    COLOR_MODE_UNKNOWN, COLOR_MODE_COLOR_TEMP, COLOR_MODE_UNKNOWN, ATTR_HS_COLOR, \
+    ATTR_EFFECT
 from homeassistant.util import color
+
 
 # noinspection PyUnresolvedReferences
 from . import DOMAIN, SCAN_INTERVAL
@@ -28,9 +31,8 @@ async def async_setup_platform(hass, config, add_entities,
     channels = discovery_info['channels']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid]['itemData'].get('uiid')
-    model = registry.devices[deviceid]['itemData'].get('productModel')
-
+    uiid = registry.devices[deviceid].get('itemData', {}).get('extra', {}).get('uiid')
+    model = registry.devices[deviceid].get('itemData', {}).get('productModel')
     if uiid == 44 or uiid == 'light':
         add_entities([SonoffD1(registry, deviceid)])
     elif uiid == 59:
@@ -47,6 +49,8 @@ async def async_setup_platform(hass, config, add_entities,
         add_entities([Sonoff103(registry, deviceid)])
     elif uiid == 104:
         add_entities([SonoffB05(registry, deviceid)])
+    elif uiid == 3258:
+        add_entities([ZigbeeColorTunableWhiteLight(registry, deviceid)])
     elif channels and len(channels) >= 2:
         add_entities([EWeLinkLightGroup(registry, deviceid, channels)])
     else:
@@ -740,5 +744,198 @@ class SonoffB05(EWeLinkLight):
 
         if not self._is_on:
             await self.registry.send(self.deviceid, {'switch': 'on'})
+
+        await self.registry.send(self.deviceid, payload)
+
+
+class ZigbeeColorTunableWhiteLight(EWeLinkLight):
+
+    _colorTemp = None
+    _colorMode = None
+    _rgbBrightness = None
+    _hue = None
+    _saturation = None
+    _cctBrightness = None
+    _brightness = None
+    _mode = None
+    _bright = None
+
+    def _update_handler(self, state: dict, attrs: dict):
+        _LOGGER.debug(state)
+        _LOGGER.debug(attrs)
+
+        self._attrs.update(attrs)
+
+        if 'switch' in state:
+            self._is_on = state['switch'] == 'on'
+
+        if 'colorMode' in state:
+            self._colorMode = state['colorMode']
+
+        if 'rgbBrightness' in state:
+            self._rgbBrightness = state['rgbBrightness']
+
+        if 'cctBrightness' in state:
+            self._cctBrightness = state['cctBrightness']
+
+        if 'brightness' in state:
+            if self._colorMode == 'cct':
+                self._cctBrightness = state['brightness']
+            else:
+                self._rgbBrightness = state['brightness']
+
+        if 'colorTemp' in state:
+            # 0..255 => 500..153
+            self._colorTemp = state['colorTemp']
+            self._temp = round(self.max_mireds - ((self._colorTemp / 100) * (self.max_mireds - self.min_mireds) ))
+            self._hs_color = None
+
+
+        if 'hue' in state:
+            # 0..255 => 500..153
+            self._hue = state['hue']
+
+        if 'saturation' in state:
+            # 0..255 => 500..153
+            self._saturation = state['saturation']
+
+        if 'mode' in state:
+            self._mode = state['mode']
+
+        if 'bright' in state:
+            self._bright = state['bright']
+
+        self.async_write_ha_state()
+
+    @property
+    def colorMode(self):
+        return self._colorMode
+
+    @property
+    def brightness(self):
+        """Return the brightness of this light between 0..255."""
+        _LOGGER.debug("get" + str({self._cctBrightness, self._rgbBrightness}))
+
+        if self._colorMode == 'cct':
+            return round(self._cctBrightness * 2.55)
+        else:
+            return round(self._rgbBrightness * 2.55)
+
+    @brightness.setter
+    def brightness(self, value):
+        _LOGGER.debug("set " + str(value))
+        self._brightness = round(value/2.55)
+        if self._colorMode == 'cct':
+            self._cctBrightness = round(value/2.55)
+        else:
+            self._rgbBrightness = round(value/2.55)
+
+    @property
+    def hs_color(self):
+        """Return the hue and saturation color value [float, float]."""
+        return (self._hue, self._saturation)
+
+    @hs_color.setter
+    def hs_color(self, value):
+        """Return the hue and saturation color value [float, float]."""
+        self._hue = round(value[0])
+        self._saturation = value[1]
+
+    @property
+    def color_temp(self):
+        """Return the CT color value in mireds."""
+        return self._temp
+
+    @color_temp.setter
+    def color_temp(self, value):
+        """Return the CT color value in mireds."""
+        self._temp = value
+        self._colorTemp = round(((self.max_mireds - value) / self.max_mireds ) * 100)
+
+    @property
+    def effect_list(self):
+        """Return the list of supported effects."""
+        return LED_EFFECTS
+
+    @property
+    def effect(self):
+        """Return the current effect."""
+        if self._colorMode == 'rgb':
+            return "Color"
+        elif self._colorMode == 'cct':
+            return "White"
+
+    @effect.setter
+    def effect(self, value):
+        """Return the current effect."""
+        if value == 'Color':
+            self._colorMode = 'rgb'
+        if value == 'White':
+            self._colorMode = 'cct'
+
+    @property
+    def supported_features(self):
+        return SUPPORT_EFFECT | SUPPORT_BRIGHTNESS | SUPPORT_COLOR_TEMP | SUPPORT_COLOR
+
+    @property
+    def supported_color_modes(self):
+        """Flag supported color modes."""
+        return [COLOR_MODE_BRIGHTNESS, COLOR_MODE_COLOR_TEMP, COLOR_MODE_HS]
+
+    @property
+    def color_mode(self):
+        if self._colorMode == 'rgb':
+            return COLOR_MODE_HS
+        elif self._colorMode == 'cct':
+            return COLOR_MODE_COLOR_TEMP
+        else:
+            return COLOR_MODE_UNKNOWN
+
+    @property
+    def min_mireds(self):
+        return 153
+
+    @property
+    def max_mireds(self):
+        return 370
+
+    async def async_turn_off(self, **kwargs) -> None:
+        self._is_on = False
+        await self._turn_off()
+
+    async def async_turn_on(self, **kwargs) -> None:
+        _LOGGER.debug("turn on" + str(kwargs))
+        _LOGGER.debug("turn on" + str(self.__dict__))
+        payload = {}
+        payload['switch'] = "on"
+
+        if ATTR_BRIGHTNESS in kwargs:
+            self.brightness = kwargs[ATTR_BRIGHTNESS]
+            if self._colorMode == 'rgb':
+                payload[f'{self.colorMode}Brightness'] = self._rgbBrightness
+            elif self._colorMode == 'cct':
+                payload[f'{self.colorMode}Brightness'] = self._cctBrightness
+
+        if ATTR_COLOR_TEMP in kwargs:
+            self.color_temp = kwargs[ATTR_COLOR_TEMP]
+            payload['colorTemp'] = self._colorTemp
+
+        if ATTR_HS_COLOR in kwargs:
+            self.hs_color = kwargs[ATTR_HS_COLOR]
+            payload['hue'] = self._hue
+            payload['saturation'] = self._saturation
+
+        if ATTR_EFFECT in kwargs:
+            self.effect = kwargs[ATTR_EFFECT]
+            payload['colorMode'] = self._colorMode
+            if self._colorMode == 'rgb':
+                payload[f'{self.colorMode}Brightness'] = self._rgbBrightness
+                payload['hue'] = self._hue
+                payload['saturation'] = self._saturation
+            elif self._colorMode == 'cct':
+                payload[f'{self.colorMode}Brightness'] = self._cctBrightness
+                payload['colorTemp'] = self._colorTemp
+
+        # payload['colorTemp'] = self._colorTemp
 
         await self.registry.send(self.deviceid, payload)
