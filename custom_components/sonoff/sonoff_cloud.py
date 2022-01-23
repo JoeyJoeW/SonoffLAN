@@ -309,7 +309,6 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             encoded_dig = base64.b64encode(hex_dig).decode()
             return f"Sign {encoded_dig}"
 
-<<<<<<< HEAD
     async def _wait_response_and_check(self, sequence: str, deviceid: str, timeout: int = 5):
         result = await self._wait_response(sequence,timeout)
         if result == 'timeout':
@@ -334,8 +333,6 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                 for handler in self._handlers:
                     handler(deviceid, state, data.get('sequence'))
 
-=======
->>>>>>> origin/master
     async def _process_ws_msg(self, data: dict):
         """Process WebSocket message."""
         await self._set_response(data)
@@ -372,13 +369,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                               f"Force update sequence: {sequence}")
                 payload = {
                     'action': 'query',
-<<<<<<< HEAD
-                    #'apikey': device.get('itemData')['apikey'],
                     'apikey': self._apikey,
-=======
-                    'apikey': device.get('itemData')['apikey'],
-                    'selfApikey': self._apikey,
->>>>>>> origin/master
                     'deviceid': deviceid,
                     'params': [],
                     'userAgent': 'app',
@@ -618,12 +609,7 @@ deviceUrl	Y	string	Url of device detail page
 
         payload = {
             'action': 'query',
-<<<<<<< HEAD
             'apikey': self._apikey,
-=======
-            'apikey': self._devices[deviceid]['itemData']['apikey'],
-            'selfApikey': self._apikey,
->>>>>>> origin/master
             'deviceid': deviceid,
             'params': [],
             'userAgent': 'app',
@@ -632,12 +618,7 @@ deviceUrl	Y	string	Url of device detail page
         } if '_query' in data else {
             'action': 'update',
             # device apikey for shared devices
-<<<<<<< HEAD
             'apikey': self._apikey,
-=======
-            'apikey': self._devices[deviceid]['itemData']['apikey'],
-            'selfApikey': self._apikey,
->>>>>>> origin/master
             'deviceid': deviceid,
             'userAgent': 'app',
             'sequence': sequence,
