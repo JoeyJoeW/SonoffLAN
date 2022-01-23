@@ -761,8 +761,6 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
     _bright = None
 
     def _update_handler(self, state: dict, attrs: dict):
-        _LOGGER.debug(state)
-        _LOGGER.debug(attrs)
 
         self._attrs.update(attrs)
 
@@ -814,7 +812,6 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
     @property
     def brightness(self):
         """Return the brightness of this light between 0..255."""
-        _LOGGER.debug("get" + str({self._cctBrightness, self._rgbBrightness}))
 
         if self._colorMode == 'cct':
             return round(self._cctBrightness * 2.55)
@@ -823,12 +820,9 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
 
     @brightness.setter
     def brightness(self, value):
-        _LOGGER.debug("set " + str(value))
         self._brightness = round(value/2.55)
-        if self._colorMode == 'cct':
-            self._cctBrightness = round(value/2.55)
-        else:
-            self._rgbBrightness = round(value/2.55)
+        self._cctBrightness = round(value/2.55)
+        self._rgbBrightness = round(value/2.55)
 
     @property
     def hs_color(self):
@@ -851,27 +845,6 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
         """Return the CT color value in mireds."""
         self._temp = value
         self._colorTemp = round(((self.max_mireds - value) / self.max_mireds ) * 100)
-
-    @property
-    def effect_list(self):
-        """Return the list of supported effects."""
-        return LED_EFFECTS
-
-    @property
-    def effect(self):
-        """Return the current effect."""
-        if self._colorMode == 'rgb':
-            return "Color"
-        elif self._colorMode == 'cct':
-            return "White"
-
-    @effect.setter
-    def effect(self, value):
-        """Return the current effect."""
-        if value == 'Color':
-            self._colorMode = 'rgb'
-        if value == 'White':
-            self._colorMode = 'cct'
 
     @property
     def supported_features(self):
@@ -904,37 +877,33 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
         await self._turn_off()
 
     async def async_turn_on(self, **kwargs) -> None:
-        _LOGGER.debug("turn on" + str(kwargs))
-        _LOGGER.debug("turn on" + str(self.__dict__))
         payload = {}
         payload['switch'] = "on"
 
         if ATTR_BRIGHTNESS in kwargs:
             self.brightness = kwargs[ATTR_BRIGHTNESS]
             if self._colorMode == 'rgb':
-                payload[f'{self.colorMode}Brightness'] = self._rgbBrightness
+                payload[f'{self._colorMode}Brightness'] = self._rgbBrightness
             elif self._colorMode == 'cct':
-                payload[f'{self.colorMode}Brightness'] = self._cctBrightness
+                payload[f'{self._colorMode}Brightness'] = self._cctBrightness
 
         if ATTR_COLOR_TEMP in kwargs:
+            if self._colorMode != 'cct':
+                self._colorMode = 'cct'
+                payload['colorMode'] = 'cct'
+                payload[f'cctBrightness'] = self._cctBrightness
             self.color_temp = kwargs[ATTR_COLOR_TEMP]
             payload['colorTemp'] = self._colorTemp
 
         if ATTR_HS_COLOR in kwargs:
+            if self._colorMode != 'rgb':
+                self._colorMode = 'rgb'
+                payload['colorMode'] = 'rgb'
+                payload[f'rgbBrightness'] = self._rgbBrightness
             self.hs_color = kwargs[ATTR_HS_COLOR]
             payload['hue'] = self._hue
             payload['saturation'] = self._saturation
 
-        if ATTR_EFFECT in kwargs:
-            self.effect = kwargs[ATTR_EFFECT]
-            payload['colorMode'] = self._colorMode
-            if self._colorMode == 'rgb':
-                payload[f'{self.colorMode}Brightness'] = self._rgbBrightness
-                payload['hue'] = self._hue
-                payload['saturation'] = self._saturation
-            elif self._colorMode == 'cct':
-                payload[f'{self.colorMode}Brightness'] = self._cctBrightness
-                payload['colorTemp'] = self._colorTemp
 
         # payload['colorTemp'] = self._colorTemp
 
