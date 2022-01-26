@@ -512,6 +512,8 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
             'id': deviceid
         }
         resp = await self._api('get', f'v2/device/thing/status', payload)
+        _LOGGER.debug(f"{deviceid} <= Cloud6 | {resp}")
+
         return resp
 
 
