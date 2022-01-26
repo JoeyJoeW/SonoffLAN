@@ -785,7 +785,6 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
         if 'colorTemp' in state:
             # 0..255 => 500..153
             self._colorTemp = state['colorTemp']
-            self._temp = round(self.max_mireds - ((self._colorTemp / 100) * (self.max_mireds - self.min_mireds) ))
             self._hs_color = None
 
 
@@ -838,13 +837,12 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
     @property
     def color_temp(self):
         """Return the CT color value in mireds."""
-        return self._temp
+        return self.max_mireds - ((self.max_mireds - self.min_mireds) * (( self._colorTemp) ) / 100)
 
     @color_temp.setter
     def color_temp(self, value):
         """Return the CT color value in mireds."""
-        self._temp = value
-        self._colorTemp = round(((self.max_mireds - value) / self.max_mireds ) * 100)
+        self._colorTemp = round(100 * (self.max_mireds - value) / (self.max_mireds - self.min_mireds) )
 
     @property
     def supported_features(self):

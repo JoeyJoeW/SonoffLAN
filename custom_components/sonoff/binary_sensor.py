@@ -25,7 +25,7 @@ async def async_setup_platform(hass, config, add_entities,
     deviceid = discovery_info['deviceid']
     registry = hass.data[DOMAIN]
 
-    uiid = registry.devices[deviceid]['itemData'].get('uiid')
+    uiid = registry.devices[deviceid].get('itemData', {}).get('extra', {}).get('uiid')
     if uiid == 102:
         add_entities([WiFiDoorWindowSensor(registry, deviceid)])
     elif uiid == 2026:
