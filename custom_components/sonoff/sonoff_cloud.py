@@ -251,6 +251,7 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
     _token = None
     _last_ts = 0
     _response_cb: Dict[str,asyncio.TimerHandle] = dict()
+    _wait_and_check_cb: Dict[str, asyncio.Task] = dict()
 
     def __init__(self, session: ClientSession):
         self.session = session
@@ -378,11 +379,18 @@ class EWeLinkCloud(ResponseWaiter, EWeLinkApp):
                 }
 
                 await self._ws.send_json(payload)
-                asyncio.create_task(self._wait_response_and_check(sequence, deviceid, 5))
+
+                if deviceid in self._wait_and_check_cb:
+                    if not self._wait_and_check_cb[deviceid].done():
+                        _LOGGER.debug(f"cancelled task {deviceid}")
+                        self._wait_and_check_cb[deviceid].cancel()
+                self._wait_and_check_cb[deviceid] = asyncio.create_task(self._wait_response_and_check(sequence, deviceid, 5))
 
         # all other msg
         else:
             _LOGGER.debug(f"Cloud msg: {data}")
+
+
 
     async def _connect(self, fails: int = 0):
         """Permanent connection loop to Cloud Servers."""

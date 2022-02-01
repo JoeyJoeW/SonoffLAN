@@ -770,17 +770,18 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
         if 'colorMode' in state:
             self._colorMode = state['colorMode']
 
+        if 'brightness' in state:
+            if self._colorMode == 'cct':
+                self._cctBrightness = state['brightness']
+            else:
+                self._rgbBrightness = state['brightness']
+
         if 'rgbBrightness' in state:
             self._rgbBrightness = state['rgbBrightness']
 
         if 'cctBrightness' in state:
             self._cctBrightness = state['cctBrightness']
 
-        if 'brightness' in state:
-            if self._colorMode == 'cct':
-                self._cctBrightness = state['brightness']
-            else:
-                self._rgbBrightness = state['brightness']
 
         if 'colorTemp' in state:
             # 0..255 => 500..153
@@ -906,3 +907,7 @@ class ZigbeeColorTunableWhiteLight(EWeLinkLight):
         # payload['colorTemp'] = self._colorTemp
 
         await self.registry.send(self.deviceid, payload)
+
+        self._is_on =  True
+
+        self.schedule_update_ha_state(False)
